@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Talk Time — English Conversations</title>
+<style>
+  :root{
+    --bg:#bfe8ff;
+    --ink:#1f2a44;
+    --accent:#ff6b4a;
+    --accent2:#2fb8a6;
+    --gold:#f4b400;
+    --card:#ffffff;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh;
+    background: linear-gradient(180deg, #bfe8ff 0%, #e8f9ff 55%, #fff6e0 100%);
+    font-family:'Trebuchet MS','Segoe UI',sans-serif; color:var(--ink);
+    display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  #app{ width:100%; max-width:820px; }
+
+  /* ---------- top bar ---------- */
+  .topbar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px; }
+  .brand{ font-size:24px; font-weight:800; }
+  .brand span{ color:var(--accent); }
+  .stats{ display:flex; gap:10px; font-size:14px; font-weight:700; }
+  .pill{ background:#fff; border:2px solid var(--ink); border-radius:20px; padding:5px 12px; }
+
+  /* ---------- scene ---------- */
+  .scene{
+    position:relative; height:300px; border:3px solid var(--ink); border-radius:18px;
+    overflow:hidden; box-shadow:6px 6px 0 var(--ink);
+    background: linear-gradient(180deg, #d7f1ff 0%, #fef9ec 100%);
+  }
+  .scene-bg-label{
+    position:absolute; top:10px; left:14px; font-size:11px; font-weight:800;
+    background:rgba(255,255,255,0.85); padding:4px 10px; border-radius:12px; letter-spacing:1px;
+    border:1px solid var(--ink);
+  }
+  .ground{ position:absolute; bottom:0; left:0; right:0; height:46px; background:#cfead0; border-top:3px solid var(--ink); }
+
+  .character{
+    position:absolute; bottom:46px; width:120px; height:170px;
+    transform-origin:bottom center;
+  }
+  .character.left{ left:8%; }
+  .character.right{ right:8%; }
+
+  .char-body{
+    width:100%; height:100%; position:relative;
+  }
+  .head{
+    width:70px; height:70px; border-radius:50%; position:absolute; top:0; left:25px;
+    border:3px solid var(--ink);
+  }
+  .torso{
+    width:90px; height:90px; border-radius:24px 24px 0 0; position:absolute; bottom:0; left:15px;
+    border:3px solid var(--ink);
+  }
+  .eye{ width:8px; height:8px; background:var(--ink); border-radius:50%; position:absolute; top:28px; }
+  .eye.l{ left:18px; } .eye.r{ left:42px; }
+  .mouth{
+    position:absolute; left:22px; top:46px; width:26px; height:6px; background:var(--ink); border-radius:0 0 10px 10px;
+    transform-origin: center top;
+  }
+
+  @keyframes talk{
+    0%,100%{ height:6px; border-radius:0 0 10px 10px; }
+    50%{ height:14px; border-radius:0 0 14px 14px; }
+  }
+  .talking .mouth{ animation: talk 0.32s infinite; }
+
+  @keyframes bob{
+    0%,100%{ transform: translateY(0); }
+    50%{ transform: translateY(-6px); }
+  }
+  .talking{ animation: bob 0.6s ease-in-out infinite; }
+
+  .char1 .head{ background:#ffd7a8; }
+  .char1 .torso{ background:var(--accent2); }
+  .char2 .head{ background:#ffc9b0; }
+  .char2 .torso{ background:var(--accent); }
+
+  .arm{
+    position:absolute; width:14px; height:50px; background:inherit; border:3px solid var(--ink); border-radius:10px;
+    top:30px;
+  }
+
+  .speech-bubble{
+    position:absolute; bottom:100%; transform:translateY(-10px);
+    background:#fff; border:3px solid var(--ink); border-radius:14px; padding:8px 12px;
+    font-size:13px; font-weight:700; max-width:170px; min-width:90px; text-align:center;
+    opacity:0; transition: opacity 0.25s ease, transform 0.25s ease;
+    box-shadow:3px 3px 0 var(--ink);
+  }
+  .speech-bubble.show{ opacity:1; transform:translateY(-16px); }
+  .speech-bubble:after{
+    content:''; position:absolute; bottom:-12px; left:50%; transform:translateX(-50%);
+    border-width:10px 8px 0 8px; border-style:solid; border-color:var(--ink) transparent transparent transparent;
+  }
+  .speech-bubble:before{
+    content:''; position:absolute; bottom:-8px; left:50%; transform:translateX(-50%);
+    border-width:8px 6px 0 6px; border-style:solid; border-color:#fff transparent transparent transparent;
+    z-index:1;
+  }
+  .character.left .speech-bubble{ left:0; }
+  .character.right .speech-bubble{ right:0; }
+
+  /* ---------- dialogue panel ---------- */
+  .panel{
+    background:var(--card); border:3px solid var(--ink); border-radius:18px;
+    padding:20px 22px; margin-top:16px; box-shadow:6px 6px 0 var(--ink);
+    min-height:170px; display:flex; flex-direction:column;
+  }
+  .panel-tag{
+    display:inline-block; background:var(--gold); color:var(--ink); font-weight:800; font-size:11px;
+    letter-spacing:1px; padding:4px 10px; border-radius:14px; margin-bottom:10px; align-self:flex-start;
+    text-transform:uppercase;
+  }
+  .npc-line{ font-size:17px; font-weight:700; margin-bottom:4px; }
+  .npc-translation{ font-size:13px; color:#7a7466; font-style:italic; margin-bottom:14px; }
+
+  .choices{ display:flex; flex-direction:column; gap:8px; margin-top:auto; }
+  .choice{
+    background:#fff; border:2px solid var(--ink); border-radius:12px; padding:11px 14px;
+    font-size:14.5px; font-weight:600; cursor:pointer; text-align:left;
+    transition: transform 0.12s, background 0.12s;
+  }
+  .choice:hover{ transform:translateX(3px); background:#fff6ee; }
+  .choice.correct{ background:var(--accent2); color:#fff; border-color:var(--accent2); }
+  .choice.wrong{ background:#ff5a5a; color:#fff; border-color:#ff5a5a; }
+  .choice.disabled{ pointer-events:none; opacity:0.6; }
+
+  .feedback{ font-size:13.5px; font-weight:700; margin-top:10px; min-height:18px; }
+  .feedback.good{ color:var(--accent2); }
+  .feedback.bad{ color:#d6453a; }
+
+  .footer-row{ display:flex; justify-content:space-between; align-items:center; margin-top:14px; }
+  .next-btn{
+    background:var(--ink); color:#fff; border:none; padding:10px 24px; border-radius:30px;
+    font-weight:800; font-size:13px; cursor:pointer; letter-spacing:1px;
+    box-shadow:3px 3px 0 var(--accent); opacity:0; pointer-events:none; transition:opacity 0.2s;
+  }
+  .next-btn.show{ opacity:1; pointer-events:auto; }
+  .back-btn{
+    background:#fff; color:var(--ink); border:2px solid var(--ink); padding:9px 18px; border-radius:30px;
+    font-weight:800; font-size:13px; cursor:pointer;
+  }
+
+  /* ---------- screens ---------- */
+  .screen-card{
+    background:var(--card); border:3px solid var(--ink); border-radius:18px; padding:30px;
+    box-shadow:6px 6px 0 var(--ink); text-align:center;
+  }
+  .screen-card h1{ font-size:30px; margin-bottom:6px; }
+  .screen-card h1 span{ color:var(--accent); }
+  .screen-card p{ color:#5c5648; font-size:14.5px; max-width:480px; margin:8px auto 22px; }
+
+  .levels-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin:18px 0; }
+  @media (max-width:560px){ .levels-grid{ grid-template-columns:repeat(2,1fr); } }
+  .level-btn{
+    background:#fff; border:3px solid var(--ink); border-radius:14px; padding:16px 6px; cursor:pointer;
+    font-weight:800; font-size:13px; box-shadow:4px 4px 0 var(--ink); transition:transform 0.12s;
+  }
+  .level-btn:hover{ transform:translateY(-3px); }
+  .level-btn .ic{ font-size:22px; display:block; margin-bottom:4px; }
+  .level-btn.locked{ opacity:0.4; cursor:not-allowed; }
+  .level-btn.locked:hover{ transform:none; }
+  .level-btn.done{ background:#eafff6; border-color:var(--accent2); }
+
+  .primary-btn{
+    background:var(--accent); color:#fff; border:none; padding:13px 30px; border-radius:30px;
+    font-weight:800; font-size:14px; cursor:pointer; box-shadow:4px 4px 0 var(--ink);
+  }
+  .primary-btn:hover{ background:#e85a3c; }
+
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <div class="topbar hidden" id="topbar">
+    <div class="brand">Talk<span>Time</span></div>
+    <div class="stats">
+      <div class="pill">⭐ <span id="scoreVal">0</span></div>
+      <div class="pill">❤️ <span id="livesVal">3</span></div>
+      <div class="pill" id="levelLabel">Level 1</div>
+      <div class="pill" id="audioToggle" style="cursor:pointer;">🔊 Audio: ON</div>
+    </div>
+  </div>
+
+  <!-- INTRO -->
+  <div class="screen-card" id="introScreen">
+    <h1>Talk<span>Time</span></h1>
+    <p>Practice real English conversations with animated characters! Pick the best response and keep the dialogue going. Choose a scenario and start chatting.</p>
+    <button class="primary-btn" id="toLevelsBtn">START</button>
+  </div>
+
+  <!-- LEVEL SELECT -->
+  <div class="screen-card hidden" id="levelsScreen">
+    <h1 style="font-size:24px;">Choose a <span>Conversation</span></h1>
+    <p style="margin-bottom:4px;">Finish each scene to unlock the next one.</p>
+    <div class="levels-grid" id="levelsGrid"></div>
+  </div>
+
+  <!-- GAME -->
+  <div id="gameScreen" class="hidden">
+    <div class="scene" id="scene">
+      <div class="scene-bg-label" id="sceneLabel">Café</div>
+
+      <div class="character left char1" id="char1">
+        <div class="char-body">
+          <div class="head"><div class="eye l"></div><div class="eye r"></div><div class="mouth"></div></div>
+          <div class="torso"></div>
+          <div class="speech-bubble" id="bubble1"></div>
+        </div>
+      </div>
+
+      <div class="character right char2" id="char2">
+        <div class="char-body">
+          <div class="head"><div class="eye l"></div><div class="eye r"></div><div class="mouth"></div></div>
+          <div class="torso"></div>
+          <div class="speech-bubble" id="bubble2"></div>
+        </div>
+      </div>
+
+      <div class="ground"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-tag" id="panelTag">YOUR TURN</div>
+      <div class="choices" id="choicesBox"></div>
+      <div class="feedback" id="feedbackText"></div>
+      <div class="footer-row">
+        <button class="back-btn" id="quitBtn">← Scenarios</button>
+        <button class="next-btn" id="nextBtn">CONTINUE →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPLETE -->
+  <div class="screen-card hidden" id="completeScreen">
+    <h1 id="completeTitle">Conversation Complete!</h1>
+    <div style="font-size:28px; margin:10px 0;" id="starRow">⭐⭐⭐</div>
+    <p id="completeText"></p>
+    <button class="primary-btn" id="continueBtn">CONTINUE</button>
+  </div>
+
+  <!-- OVER -->
+  <div class="screen-card hidden" id="overScreen">
+    <h1 style="color:#d6453a;">Conversation Lost</h1>
+    <p id="overText"></p>
+    <button class="primary-btn" id="retryBtn">TRY AGAIN</button>
+  </div>
+
+</div>
+
+<script>
+/* ===================== DIALOGUE DATA ===================== */
+/*
+Each level = a scenario. Each scenario has a sequence of "turns".
+Turn type "npc": character speaks a line automatically (animated).
+Turn type "choice": user picks the best response; correct = index of right option.
+*/
+const LEVELS = [
+  {
+    title: "Level 1",
+    scene: "At the Café",
+    icon: "☕",
+    turns: [
+      { type:"npc", speaker:1, line:"Hi! Welcome to our café. What can I get you?", translation:"(¡Hola! Bienvenido a nuestro café. ¿Qué te traigo?)" },
+      { type:"choice", options:[
+          "I would like a coffee, please.",
+          "I am not a café.",
+          "House blue car.",
+        ], correct:0, goodReply:"Great choice! One coffee coming up.", badReply:"That doesn't quite answer the question. Try ordering something." },
+      { type:"npc", speaker1:false, speaker:1, line:"Sure! Would you like it hot or iced?", translation:"(¿Lo quieres caliente o helado?)" },
+      { type:"choice", options:[
+          "Iced, please. It's hot outside.",
+          "Yesterday I eat a sandwich.",
+          "No house today.",
+        ], correct:0, goodReply:"Perfect! Iced coffee it is.", badReply:"That's not a valid answer to the question. Try again next time!" },
+      { type:"npc", speaker:1, line:"Here you go! Enjoy your coffee.", translation:"(¡Aquí tienes! Disfruta tu café.)" },
+      { type:"choice", options:[
+          "Thank you very much!",
+          "I hate coffee actually.",
+          "Where is the moon?",
+        ], correct:0, goodReply:"You're welcome! Have a nice day.", badReply:"A polite reply would fit better here." },
+    ]
+  },
+  {
+    title: "Level 2",
+    scene: "Meeting Someone New",
+    icon: "👋",
+    turns: [
+      { type:"npc", speaker:1, line:"Hi, I'm Alex. What's your name?", translation:"(Hola, soy Alex. ¿Cómo te llamas?)" },
+      { type:"choice", options:[
+          "My name is Sara. Nice to meet you.",
+          "I am a Tuesday.",
+          "Yes please give me that.",
+        ], correct:0, goodReply:"Nice to meet you too, Sara!", badReply:"That doesn't really answer 'What's your name?'." },
+      { type:"npc", speaker:1, line:"Where are you from?", translation:"(¿De dónde eres?)" },
+      { type:"choice", options:[
+          "I'm from Peru.",
+          "I am from Tuesday.",
+          "I am twelve apples.",
+        ], correct:0, goodReply:"Peru, nice! I'd love to visit someday.", badReply:"Try answering with a country or city." },
+      { type:"npc", speaker:1, line:"What do you do for fun?", translation:"(¿Qué haces para divertirte?)" },
+      { type:"choice", options:[
+          "I like playing soccer and reading books.",
+          "I no understand the question never.",
+          "Blue is a color of seven.",
+        ], correct:0, goodReply:"That sounds fun! I enjoy reading too.", badReply:"This answer doesn't make sense in English. Try describing a hobby." },
+    ]
+  },
+  {
+    title: "Level 3",
+    scene: "Asking for Directions",
+    icon: "🧭",
+    turns: [
+      { type:"npc", speaker:1, line:"Excuse me, can you help me? I'm lost.", translation:"(Disculpa, ¿me puedes ayudar? Estoy perdido.)" },
+      { type:"choice", options:[
+          "Sure, where do you want to go?",
+          "I am not from here never ever.",
+          "Coffee is hot today maybe.",
+        ], correct:0, goodReply:"Great! Let's find out where they need to go.", badReply:"That's not a helpful response to someone who is lost." },
+      { type:"npc", speaker:1, line:"I'm looking for the train station.", translation:"(Estoy buscando la estación de tren.)" },
+      { type:"choice", options:[
+          "Go straight, then turn left at the bank.",
+          "The train is a fish swimming.",
+          "I don't like trains they are loud.",
+        ], correct:0, goodReply:"Perfect directions! They'll find it now.", badReply:"That doesn't actually give directions." },
+      { type:"npc", speaker:1, line:"Thank you so much for your help!", translation:"(¡Muchas gracias por tu ayuda!)" },
+      { type:"choice", options:[
+          "You're welcome! Have a safe trip.",
+          "I never help people you know.",
+          "Trains are blue and yellow today.",
+        ], correct:0, goodReply:"A perfect, polite goodbye!", badReply:"Try a kind closing response instead." },
+    ]
+  },
+  {
+    title: "Level 4",
+    scene: "Job Interview",
+    icon: "💼",
+    turns: [
+      { type:"npc", speaker:1, line:"Tell me about yourself.", translation:"(Cuéntame sobre ti.)" },
+      { type:"choice", options:[
+          "I have three years of experience in marketing.",
+          "I am Tuesday and also Friday.",
+          "Sky blue grass green house.",
+        ], correct:0, goodReply:"Great, professional answer!", badReply:"That answer doesn't describe yourself professionally." },
+      { type:"npc", speaker:1, line:"Why do you want to work here?", translation:"(¿Por qué quieres trabajar aquí?)" },
+      { type:"choice", options:[
+          "I admire your company's values and growth.",
+          "Because money is green and nice.",
+          "I don't really want to work at all.",
+        ], correct:0, goodReply:"Thoughtful and professional — well done!", badReply:"Try giving a genuine, professional reason." },
+      { type:"npc", speaker:1, line:"Do you have any questions for us?", translation:"(¿Tienes alguna pregunta para nosotros?)" },
+      { type:"choice", options:[
+          "Yes, what does a typical day look like in this role?",
+          "No questions, goodbye forever now.",
+          "Is the sky always this color?",
+        ], correct:0, goodReply:"Excellent question to ask — shows real interest!", badReply:"That's not an appropriate question for an interview." },
+    ]
+  },
+];
+
+/* ===================== AUDIO (Text-to-Speech) ===================== */
+let audioOn = true;
+let voices = [];
+let voiceMale = null;
+let voiceFemale = null;
+
+function loadVoices(){
+  voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+  const enVoices = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('en'));
+  // try to pick a male-ish and female-ish voice for variety; fall back to any english voice
+  voiceFemale = enVoices.find(v => /female|woman|samantha|victoria|zira|susan/i.test(v.name)) || enVoices[0] || null;
+  voiceMale = enVoices.find(v => /male|man|daniel|david|alex|fred/i.test(v.name)) || enVoices[1] || enVoices[0] || null;
+}
+if (window.speechSynthesis) {
+  loadVoices();
+  window.speechSynthesis.onvoiceschanged = loadVoices;
+}
+
+function speakText(text, speakerNum){
+  if (!audioOn || !window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = 'en-US';
+  utter.rate = 0.95;
+  utter.pitch = speakerNum === 1 ? 1.0 : 1.15;
+  const v = speakerNum === 1 ? voiceMale : voiceFemale;
+  if (v) utter.voice = v;
+  window.speechSynthesis.speak(utter);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const toggle = document.getElementById('audioToggle');
+  if (toggle) {
+    toggle.addEventListener('click', () => {
+      audioOn = !audioOn;
+      toggle.textContent = audioOn ? '🔊 Audio: ON' : '🔇 Audio: OFF';
+      if (!audioOn && window.speechSynthesis) window.speechSynthesis.cancel();
+    });
+  }
+});
+
+/* ===================== STATE ===================== */
+let state = {
+  currentLevel: 0,
+  turnIndex: 0,
+  score: 0,
+  lives: 3,
+  unlocked: LEVELS.map((_,i)=> i===0),
+  completed: LEVELS.map(()=> false),
+};
+
+/* ===================== DOM ===================== */
+const introScreen = document.getElementById('introScreen');
+const levelsScreen = document.getElementById('levelsScreen');
+const gameScreen = document.getElementById('gameScreen');
+const completeScreen = document.getElementById('completeScreen');
+const overScreen = document.getElementById('overScreen');
+const topbar = document.getElementById('topbar');
+
+function showOnly(el){
+  [introScreen, levelsScreen, gameScreen, completeScreen, overScreen].forEach(s=>s.classList.add('hidden'));
+  el.classList.remove('hidden');
+}
+
+document.getElementById('toLevelsBtn').addEventListener('click', ()=>{
+  topbar.classList.add('hidden');
+  renderLevels();
+  showOnly(levelsScreen);
+});
+document.getElementById('quitBtn').addEventListener('click', ()=>{
+  topbar.classList.add('hidden');
+  renderLevels();
+  showOnly(levelsScreen);
+});
+document.getElementById('continueBtn').addEventListener('click', ()=>{
+  topbar.classList.add('hidden');
+  renderLevels();
+  showOnly(levelsScreen);
+});
+document.getElementById('retryBtn').addEventListener('click', ()=> startLevel(state.currentLevel));
+
+function renderLevels(){
+  const grid = document.getElementById('levelsGrid');
+  grid.innerHTML = '';
+  LEVELS.forEach((lvl,i)=>{
+    const btn = document.createElement('div');
+    let cls = 'level-btn';
+    if(!state.unlocked[i]) cls += ' locked';
+    if(state.completed[i]) cls += ' done';
+    btn.className = cls;
+    btn.innerHTML = `<span class="ic">${state.completed[i] ? '✅' : lvl.icon}</span>${lvl.title}<br><small style="font-weight:600;">${lvl.scene}</small>`;
+    if(state.unlocked[i]) btn.addEventListener('click', ()=> startLevel(i));
+    grid.appendChild(btn);
+  });
+}
+
+function startLevel(i){
+  state.currentLevel = i;
+  state.turnIndex = 0;
+  state.score = 0;
+  state.lives = 3;
+  topbar.classList.remove('hidden');
+  document.getElementById('levelLabel').textContent = LEVELS[i].title;
+  document.getElementById('sceneLabel').textContent = LEVELS[i].scene;
+  updateStats();
+  showOnly(gameScreen);
+  clearBubbles();
+  playTurn();
+}
+
+function updateStats(){
+  document.getElementById('scoreVal').textContent = state.score;
+  document.getElementById('livesVal').textContent = state.lives;
+}
+
+function clearBubbles(){
+  document.getElementById('bubble1').classList.remove('show');
+  document.getElementById('bubble2').classList.remove('show');
+  document.getElementById('char1').classList.remove('talking');
+  document.getElementById('char2').classList.remove('talking');
+}
+
+function speak(speakerNum, text){
+  clearBubbles();
+  const charEl = document.getElementById('char' + speakerNum);
+  const bubble = document.getElementById('bubble' + speakerNum);
+  bubble.textContent = text;
+  charEl.classList.add('talking');
+  // small delay so transition triggers
+  requestAnimationFrame(()=> bubble.classList.add('show'));
+  speakText(text, speakerNum);
+}
+
+function playTurn(){
+  const level = LEVELS[state.currentLevel];
+  const turn = level.turns[state.turnIndex];
+
+  document.getElementById('feedbackText').textContent = '';
+  document.getElementById('feedbackText').className = 'feedback';
+  document.getElementById('nextBtn').classList.remove('show');
+  document.getElementById('choicesBox').innerHTML = '';
+
+  if(turn.type === 'npc'){
+    document.getElementById('panelTag').textContent = 'LISTEN';
+    speak(turn.speaker, turn.line);
+    const box = document.getElementById('choicesBox');
+    const transEl = document.createElement('div');
+    transEl.style.fontSize = '13px';
+    transEl.style.color = '#7a7466';
+    transEl.style.fontStyle = 'italic';
+    transEl.style.marginBottom = '10px';
+    transEl.textContent = turn.translation || '';
+    box.appendChild(transEl);
+    document.getElementById('nextBtn').classList.add('show');
+  } else if(turn.type === 'choice'){
+    document.getElementById('panelTag').textContent = 'YOUR TURN — choose a reply';
+    clearBubbles();
+    const box = document.getElementById('choicesBox');
+    turn.options.forEach((opt, idx)=>{
+      const b = document.createElement('div');
+      b.className = 'choice';
+      b.textContent = opt;
+      b.addEventListener('click', ()=> selectChoice(idx, turn, b));
+      box.appendChild(b);
+    });
+  }
+}
+
+function selectChoice(idx, turn, btnEl){
+  const allChoices = document.querySelectorAll('.choice');
+  allChoices.forEach(c=>c.classList.add('disabled'));
+  const fb = document.getElementById('feedbackText');
+
+  // player is character 2 (right side) replying
+  speak(2, turn.options[idx]);
+
+  if(idx === turn.correct){
+    btnEl.classList.add('correct');
+    state.score += 10;
+    fb.textContent = '✅ ' + turn.goodReply;
+    fb.className = 'feedback good';
+  } else {
+    btnEl.classList.add('wrong');
+    allChoices[turn.correct].classList.add('correct');
+    state.lives -= 1;
+    fb.textContent = '❌ ' + turn.badReply;
+    fb.className = 'feedback bad';
+  }
+  updateStats();
+
+  if(state.lives <= 0){
+    setTimeout(()=>{
+      document.getElementById('overText').textContent =
+        `You lost the thread of the conversation in "${LEVELS[state.currentLevel].scene}". Practice makes perfect — try again!`;
+      showOnly(overScreen);
+    }, 900);
+    return;
+  }
+
+  setTimeout(()=> document.getElementById('nextBtn').classList.add('show'), 400);
+}
+
+document.getElementById('nextBtn').addEventListener('click', ()=>{
+  const level = LEVELS[state.currentLevel];
+  state.turnIndex++;
+  if(state.turnIndex >= level.turns.length){
+    finishLevel();
+  } else {
+    playTurn();
+  }
+});
+
+function finishLevel(){
+  const i = state.currentLevel;
+  state.completed[i] = true;
+  if(i+1 < state.unlocked.length) state.unlocked[i+1] = true;
+
+  const choiceTurns = LEVELS[i].turns.filter(t=>t.type==='choice').length;
+  const maxScore = choiceTurns * 10;
+  const pct = state.score / maxScore;
+  const stars = pct >= 0.9 ? '⭐⭐⭐' : pct >= 0.6 ? '⭐⭐' : '⭐';
+
+  document.getElementById('starRow').textContent = stars;
+  document.getElementById('completeTitle').textContent = `${LEVELS[i].scene} — Done!`;
+  document.getElementById('completeText').textContent =
+    `Score: ${state.score} points. ` + (i+1 < LEVELS.length ? 'A new conversation has been unlocked!' : 'You completed every conversation — congratulations!');
+
+  showOnly(completeScreen);
+}
+
+/* init */
+showOnly(introScreen);
+</script>
+</body>
+</html>
